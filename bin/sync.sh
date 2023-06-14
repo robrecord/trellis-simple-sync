@@ -39,11 +39,10 @@ do
   [[ $arg = -h ]] && { show_usage; exit 0; }
 done
 
-ENV="$1"; shift
-SITE="$1"; shift
-TYPE="$1"; shift
-MODE="$1"; shift
-EXTRA_PARAMS=$@
+ENV="$1";
+SITE="$2";
+TYPE="$3";
+MODE="$4";
 
 # allow use of abbreviations of environments
 if [[ $ENV = p || $ENV = prod ]]; then
@@ -66,9 +65,6 @@ elif [[ $MODE = up ]]; then
   MODE="push"
 fi
 
-DATABASE_CMD="ansible-playbook database.yml -e env=$ENV -e site=$SITE -e mode=$MODE $EXTRA_PARAMS"
-UPLOADS_CMD="ansible-playbook uploads.yml -e env=$ENV -e site=$SITE -e mode=$MODE $EXTRA_PARAMS"
-
 HOSTS_FILE="hosts/$ENV"
 
 if [[ ! -e $HOSTS_FILE ]]; then
@@ -88,6 +84,49 @@ if [[ $MODE != "pull" && $MODE != "push" ]]; then
   echo "Error: '$MODE' is not a valid sync mode (pull or down, push or up)."
   exit 1
 fi
+
+INVENTORY_PARAMS="-i $HOSTS_FILE"
+
+VAGRANT_ACTIVE=0
+LIMA_ACTIVE=0
+
+if which vagrant >/dev/null; then
+  if test -e .vagrant/hostmanager/id; then
+    VAGRANT_ID="$(cat .vagrant/hostmanager/id)"
+
+    if test ${#VAGRANT_ID} -eq 36; then
+      if vagrant status $VAGRANT_ID --no-tty 2>/dev/null | grep -q "is running"; then
+        VAGRANT_ACTIVE=1
+      fi
+    fi
+  fi
+fi
+
+if which trellis >/dev/null && which limactl >/dev/null; then
+  if test -e .trellis/lima/inventory; then
+    if limactl list $SITE 2>/dev/null | grep -q "Running"; then
+      LIMA_ACTIVE=1
+    fi
+  fi
+fi
+
+if [[ $LIMA_ACTIVE == 0 ]] && [[ $VAGRANT_ACTIVE == 0 ]]; then
+  echo "Could not find any local development VMs running."
+  exit 1
+fi
+
+if [[ $LIMA_ACTIVE == 1 ]]; then
+  INVENTORY_PARAMS="$INVENTORY_PARAMS -i .trellis/lima/inventory"
+fi
+
+if [[ $VAGRANT_ACTIVE == 1 ]]; then
+  INVENTORY_PARAMS="$INVENTORY_PARAMS -i .vagrant/provisioners/ansible/inventory"
+fi
+
+ARG_PARAMS="-e env=$ENV -e site=$SITE -e mode=$MODE"
+
+DATABASE_CMD="ansible-playbook database.yml $ARG_PARAMS $INVENTORY_PARAMS"
+UPLOADS_CMD="ansible-playbook uploads.yml $ARG_PARAMS $INVENTORY_PARAMS"
 
 if [[ $TYPE = database ]]; then
   $DATABASE_CMD
