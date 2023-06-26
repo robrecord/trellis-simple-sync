@@ -73,10 +73,10 @@
           when: "'development' in group_names"
 
         - name: PULL > Delete dump file on development
-          connection: local
           file:
             state: absent
             path: "{{ project_local_path }}/{{ sync_file }}"
+          when: "'development' in group_names"
 
         - name: PULL > Replace urls "{{ url_env }}" => "{{ url_dev }}" on development
           shell: 
@@ -118,62 +118,82 @@
     - name: PUSH database
       block:
         - name: PUSH > Export development database
-          connection: local
-          shell: "{{ ssh_command }} {{ wpcli_command }} db export - | gzip > {{ sync_file }}.gz"
+          shell: "{{ wpcli_command }} db export - | gzip > {{ sync_file }}.gz"
+          args:
+            chdir: "{{ project_current }}"
+          when: "'development' in group_names"
 
         - name: PUSH > Push dump file from development to {{ env }}
-          copy:
+          run_once: yes
+          fetch:
             src: "{{ project_local_path }}/{{ sync_file }}.gz"
             dest: "{{ project_current }}/"
-
+            flat: yes
+          when: "'development' in group_names"
+    
         - name: PUSH > Delete dump file from development
-          connection: local
           file:
             state: absent
             path: "{{ project_local_path }}/{{ sync_file }}.gz"
+          when: "'development' in group_names"
 
         - name: PUSH > Backup {{ env }} database
-          shell: "wp db export - | gzip > {{ backup_file }}.gz"
-          args:
+          shell:
+            cmd: "{{ wpcli_command }} db export - | gzip > {{ backup_file }}.gz"
             chdir: "{{ project_current }}"
+          when: "env in group_names"
 
         - name: PUSH > Reset {{ env }} database
-          command: "{{ wpcli_command }} db reset --yes"
-          args:
+          shell:
+            cmd: "{{ wpcli_command }} db reset --yes"
             chdir: "{{ project_current }}"
+          when: "env in group_names"
 
         - name: PUSH > Import database dump on {{ env }}
-          shell: "gunzip {{ sync_file }}.gz | {{ wpcli_command }} db import -"
-          args:
+          shell:
+            cmd: "cat {{ sync_file }}.gz | gunzip | {{ wpcli_command }} db import -"
             chdir: "{{ project_current }}"
+          when: "env in group_names"
 
-        - name: PUSH > Replace urls "{{ url_dev }}" => "{{ url_env }}" on {{ env }}
-          command: "{{ wpcli_command }} search-replace '{{ url_dev }}' '{{ url_env }}' {{ skip_guids_option }} --all-tables"
-          args:
-            chdir: "{{ project_current }}"
+        - name: PULL > Delete dump file on {{ env }}
+          file:
+            state: absent
+            path: "{{ project_local_path }}/{{ sync_file }}"
+          when: "env in group_names"
 
-        - name: PUSH > Replace protocol-relative urls "//{{ domain_dev }}" => "//{{ domain_env }}" on {{ env }}
-          command: "{{ wpcli_command }} search-replace '//{{ domain_dev }}' '//{{ domain_env }}' {{ skip_guids_option }} --all-tables"
-          args:
+        - name: PULL > Replace urls "{{ url_env }}" => "{{ url_dev }}" on {{ env }}
+          shell: 
+            cmd: '{{ wpcli_command }} search-replace "{{ url_env }}" "{{ url_dev }}" {{ skip_guids_option }} --all-tables'
             chdir: "{{ project_current }}"
+          when: "env in group_names"
 
-        - name: PUSH > Replace emails "@{{ domain_dev }}" => "@{{ domain_env }}" on {{ env }}
-          command: "{{ wpcli_command }} search-replace '@{{ domain_dev }}' '@{{ domain_env }}' --all-tables"
-          args:
+        - name: PULL > Replace protocol-relative urls "//{{ domain_env }}" => "//{{ domain_dev }}" on {{ env }}
+          shell: 
+            cmd: '{{ wpcli_command }} search-replace "//{{ domain_env }}" "//{{ domain_dev }}" {{ skip_guids_option }} --all-tables'
             chdir: "{{ project_current }}"
+          when: "env in group_names"
 
-        - name: PUSH > Replace Elementor urls "{{ url_dev }}" => "{{ url_env }}" on {{ env }}
-          shell: "{{ wpcli_command }} cli has-command 'elementor replace_urls' && {{ wpcli_elementor }} replace_urls '{{ url_dev }}' '{{ url_env }}' || true"
-          args:
+        - name: PULL > Replace emails "@{{ domain_env }}" => "@{{ domain_dev }}" on {{ env }}
+          shell: 
+            cmd: '{{ wpcli_command }} search-replace "@{{ domain_env }}" "@{{ domain_dev }}" --all-tables'
             chdir: "{{ project_current }}"
+          when: "env in group_names"
 
-        - name: PUSH > Cache flush on {{ env }}
-          command: "{{ wpcli_command }} cache flush"
-          args:
+        - name: PULL > Replace Elementor urls "{{ url_env }}" => "{{ url_dev }}" on {{ env }}
+          shell: 
+            cmd: '{{ wpcli_command }} cli has-command "elementor replace_urls" && {{ wpcli_elementor }} replace_urls "{{ url_env }}" "{{ url_dev }}" || true'
             chdir: "{{ project_current }}"
+          when: "env in group_names"
 
-        - name: PUSH > Elementor flush CSS on {{ env }}
-          shell: "{{ wpcli_command }} cli has-command 'elementor flush_css' && {{ wpcli_elementor }} flush_css || true"
-          args:
+        - name: PULL > Cache flush on {{ env }}
+          shell: 
+            cmd: "{{ wpcli_command }} cache flush"
             chdir: "{{ project_current }}"
+          when: "env in group_names"
+
+        - name: PULL > Elementor flush CSS on {{ env }}
+          shell: 
+            cmd: '{{ wpcli_command }} cli has-command "elementor flush_css" && {{ wpcli_elementor }} flush_css || true'
+            chdir: "{{ project_current }}"
+          when: "env in group_names"
       when: mode is defined and mode == "push"
