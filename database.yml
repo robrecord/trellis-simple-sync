@@ -68,7 +68,7 @@
 
         - name: PULL > Import database dump on development
           shell:
-            cmd: "cat {{ sync_file }}.gz | gunzip | {{ wpcli_command }} db import -"
+            cmd: "zcat {{ sync_file }}.gz | {{ wpcli_command }} db import -"
             chdir: "{{ project_current }}"
           when: "'development' in group_names"
 
@@ -151,7 +151,7 @@
 
         - name: PUSH > Import database dump on {{ env }}
           shell:
-            cmd: "cat {{ sync_file }}.gz | gunzip | {{ wpcli_command }} db import -"
+            cmd: "zcat {{ sync_file }}.gz | {{ wpcli_command }} db import -"
             chdir: "{{ project_current }}"
           when: "env in group_names"
 
