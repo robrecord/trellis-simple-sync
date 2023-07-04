@@ -51,6 +51,17 @@
             path: "{{ project_current }}/{{ sync_file }}"
           when: "env in group_names"
 
+        - name: PULL > Check that the pulled dump file exists on development
+          stat:
+            path: "{{ project_current }}/{{ sync_file }}"
+          register: stat_result
+          when: "'development' in group_names"
+
+        - name: PUSH > Fail if dump file doesn't exist on {{ env }}
+          fail:
+            msg: "Database dump did not succesfully arrive on the destination server"
+          when: "'development' in group_names and not stat_result.stat.exists"
+
         - name: PULL > Backup development database
           shell:
             cmd: "{{ wpcli_command }} db export - | gzip > {{ backup_file }}"
@@ -126,14 +137,15 @@
             dest: "{{ project_current }}/"
           when: "env in group_names"
 
-        - name: Check that the somefile.conf exists
+        - name: PUSH > Check that the pushed dump file exists on {{ env }}
           stat:
             path: "{{ project_current }}/{{ sync_file }}"
           register: stat_result
+          when: "env in group_names"
 
         - name: PUSH > Fail if dump file doesn't exist on {{ env }}
           fail:
-            msg: "Database dump did not succesfully arrive on the destrination server"
+            msg: "Database dump did not succesfully arrive on the destination server"
           when: not stat_result.stat.exists
     
         - name: PUSH > Delete dump file from development
