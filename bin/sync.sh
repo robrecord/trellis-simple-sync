@@ -125,7 +125,7 @@ fi
 
 ARG_PARAMS="-e env=$ENV -e site=$SITE -e mode=$MODE"
 
-DATABASE_CMD="ansible-playbook database.yml -vvv $ARG_PARAMS $INVENTORY_PARAMS"
+DATABASE_CMD="ansible-playbook database.yml $ARG_PARAMS $INVENTORY_PARAMS"
 UPLOADS_CMD="ansible-playbook uploads.yml $ARG_PARAMS $INVENTORY_PARAMS"
 
 if [[ $TYPE = database ]]; then
