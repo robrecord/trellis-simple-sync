@@ -43,6 +43,7 @@
           fetch:
             src: "{{ project_current }}/{{ sync_file }}"
             dest: "{{ project.local_path }}/"
+            flat: true
           when: "env in group_names"
 
         - name: PULL > Delete dump file from {{ env }}
