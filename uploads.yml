@@ -1,12 +1,14 @@
 ---
 - name: Sync {{ site }} UPLOADS between development <-> {{ env }} environments
-  hosts: web:&{{ env }}
+  hosts: "{{ env }}:development:&web"
   remote_user: "{{ web_user }}"
 
   vars:
     project: "{{ wordpress_sites[site] }}"
     project_current: "{{ www_root }}/{{ site }}/current"
     project_local_path: "{{ (lookup('env', 'USER') == 'vagrant') | ternary(project_current, project.local_path) }}"
+    wpcli_command: "wp --skip-themes"
+    wpcli_elementor: "wp --skip-themes elementor"
 
   tasks:
   - name: Abort if environment variable is equal to development
@@ -19,28 +21,33 @@
       - name: Pull uploads from {{ env }}
         synchronize:
           src: "{{ project_current }}/web/app/uploads/"
-          dest: "{{ project_local_path }}/web/app/uploads/"
+          dest: "{{ project.local_path }}/web/app/uploads/"
           mode: pull
           recursive: yes
           rsync_opts: --exclude=.DS_Store
+        when: "env in group_names"
 
       - name: Elementor flush CSS on development
-        connection: local
-        shell: vagrant ssh -- "cd {{ project_current }} && wp cli has-command 'elementor flush_css' && [ $? -eq 0 ] && wp elementor flush_css --skip-themes || cd ."
+        shell: "{{ wpcli_command }} cli has-command 'elementor flush_css' && {{ wpcli_elementor }} flush_css --skip-themes || true"
+        when: "'development' in group_names"
+
     when: mode is not defined or mode == "pull"
 
   - name: PUSH uploads
     block:
       - name: Push uploads to {{ env }}
         synchronize:
-          src: "{{ project_local_path }}/web/app/uploads/"
+          src: "{{ project.local_path }}/web/app/uploads/"
           dest: "{{ project_current }}/web/app/uploads/"
           mode: push
           recursive: yes
           rsync_opts: --exclude=.DS_Store
+        when: "env in group_names"
 
       - name: Elementor flush CSS on {{ env }}
-        shell: wp cli has-command 'elementor flush_css' && [ $? -eq 0 ] && wp elementor flush_css --skip-themes || cd .
+        shell: "{{ wpcli_command }} cli has-command 'elementor flush_css' && {{ wpcli_elementor }} flush_css --skip-themes || true"
         args:
           chdir: "{{ project_current }}"
+        when: "'development' in group_names"
+
     when: mode is defined and mode == "push"
