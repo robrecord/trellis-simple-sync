@@ -136,7 +136,6 @@
           copy:
             src: "{{ project.local_path }}/{{ sync_file }}"
             dest: "{{ project_current }}/"
-            flat: true
           when: "env in group_names"
 
         - name: PUSH > Check that the pushed dump file exists on {{ env }}
