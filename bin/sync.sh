@@ -32,11 +32,14 @@ Examples:
 "
 }
 
+DEBUG=0
+
 [[ $# -lt NUM_ARGS ]] && { show_usage; exit 127; }
 
 for arg
 do
   [[ $arg = -h ]] && { show_usage; exit 0; }
+  [[ $arg = -v ]] && { DEBUG=1; }
 done
 
 ENV="$1";
@@ -123,7 +126,13 @@ if [[ $VAGRANT_ACTIVE == 1 ]]; then
   INVENTORY_PARAMS="$INVENTORY_PARAMS -i .vagrant/provisioners/ansible/inventory"
 fi
 
-ARG_PARAMS="-e env=$ENV -e site=$SITE -e mode=$MODE"
+if [[ $DEBUG == 1 ]]; then
+  DEBUG_PARAMS="-vvv"
+else
+  DEBUG_PARAMS=""
+fi
+
+ARG_PARAMS="$DEBUG_PARAMS -e env=$ENV -e site=$SITE -e mode=$MODE"
 
 DATABASE_CMD="ansible-playbook database.yml $ARG_PARAMS $INVENTORY_PARAMS"
 UPLOADS_CMD="ansible-playbook uploads.yml $ARG_PARAMS $INVENTORY_PARAMS"
