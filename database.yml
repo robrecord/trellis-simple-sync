@@ -88,37 +88,37 @@
           when: "'development' in group_names"
 
         - name: PULL > Replace urls "{{ url_env }}" => "{{ url_dev }}" on development
-          shell: 
+          shell:
             cmd: '{{ wpcli_command }} search-replace "{{ url_env }}" "{{ url_dev }}" {{ skip_guids_option }} --all-tables'
             chdir: "{{ project_current }}"
           when: "'development' in group_names"
 
         - name: PULL > Replace protocol-relative urls "//{{ domain_env }}" => "//{{ domain_dev }}" on development
-          shell: 
+          shell:
             cmd: '{{ wpcli_command }} search-replace "//{{ domain_env }}" "//{{ domain_dev }}" {{ skip_guids_option }} --all-tables'
             chdir: "{{ project_current }}"
           when: "'development' in group_names"
 
         - name: PULL > Replace emails "@{{ domain_env }}" => "@{{ domain_dev }}" on development
-          shell: 
+          shell:
             cmd: '{{ wpcli_command }} search-replace "@{{ domain_env }}" "@{{ domain_dev }}" --all-tables'
             chdir: "{{ project_current }}"
           when: "'development' in group_names"
 
         - name: PULL > Replace Elementor urls "{{ url_env }}" => "{{ url_dev }}" on development
-          shell: 
+          shell:
             cmd: '{{ wpcli_command }} cli has-command "elementor replace_urls" && {{ wpcli_elementor }} replace_urls "{{ url_env }}" "{{ url_dev }}" || true'
             chdir: "{{ project_current }}"
           when: "'development' in group_names"
 
         - name: PULL > Cache flush on development
-          shell: 
+          shell:
             cmd: "{{ wpcli_command }} cache flush"
             chdir: "{{ project_current }}"
           when: "'development' in group_names"
 
         - name: PULL > Elementor flush CSS on development
-          shell: 
+          shell:
             cmd: '{{ wpcli_command }} cli has-command "elementor flush_css" && {{ wpcli_elementor }} flush_css || true'
             chdir: "{{ project_current }}"
           when: "'development' in group_names"
@@ -148,7 +148,7 @@
           fail:
             msg: "Database dump did not succesfully arrive on the destination server"
           when: not stat_result.stat.exists
-    
+
         - name: PUSH > Delete dump file from development
           file:
             state: absent
@@ -179,38 +179,38 @@
         #     path: "{{ project_current }}/{{ sync_file }}"
         #   when: "env in group_names"
 
-        - name: PUSH > Replace urls "{{ url_env }}" => "{{ url_dev }}" on {{ env }}
-          shell: 
-            cmd: '{{ wpcli_command }} search-replace "{{ url_env }}" "{{ url_dev }}" {{ skip_guids_option }} --all-tables'
+        - name: PUSH > Replace urls "{{ url_dev }}" => "{{ url_env }}" on {{ env }}
+          shell:
+            cmd: '{{ wpcli_command }} search-replace "{{ url_dev }}" "{{ url_env }}" {{ skip_guids_option }} --precise --all-tables'
             chdir: "{{ project_current }}"
           when: "env in group_names"
 
-        - name: PUSH > Replace protocol-relative urls "//{{ domain_env }}" => "//{{ domain_dev }}" on {{ env }}
-          shell: 
-            cmd: '{{ wpcli_command }} search-replace "//{{ domain_env }}" "//{{ domain_dev }}" {{ skip_guids_option }} --all-tables'
+        - name: PUSH > Replace protocol-relative urls "//{{ domain_dev }}" => "//{{ domain_env }}" on {{ env }}
+          shell:
+            cmd: '{{ wpcli_command }} search-replace "//{{ domain_dev }}" "//{{ domain_env }}" {{ skip_guids_option }} --precise --all-tables'
             chdir: "{{ project_current }}"
           when: "env in group_names"
 
-        - name: PUSH > Replace emails "@{{ domain_env }}" => "@{{ domain_dev }}" on {{ env }}
-          shell: 
-            cmd: '{{ wpcli_command }} search-replace "@{{ domain_env }}" "@{{ domain_dev }}" --all-tables'
+        - name: PUSH > Replace emails "@{{ domain_dev }}" => "@{{ domain_env }}" on {{ env }}
+          shell:
+            cmd: '{{ wpcli_command }} search-replace "@{{ domain_dev }}" "@{{ domain_env }}" --precise --all-tables'
             chdir: "{{ project_current }}"
           when: "env in group_names"
 
-        - name: PUSH > Replace Elementor urls "{{ url_env }}" => "{{ url_dev }}" on {{ env }}
-          shell: 
-            cmd: '{{ wpcli_command }} cli has-command "elementor replace_urls" && {{ wpcli_elementor }} replace_urls "{{ url_env }}" "{{ url_dev }}" || true'
+        - name: PUSH > Replace Elementor urls "{{ url_dev }}" => "{{ url_env }}" on {{ env }}
+          shell:
+            cmd: '{{ wpcli_command }} cli has-command "elementor replace_urls" && {{ wpcli_elementor }} replace_urls "{{ url_dev }}" "{{ url_env }}" || true'
             chdir: "{{ project_current }}"
           when: "env in group_names"
 
         - name: PUSH > Cache flush on {{ env }}
-          shell: 
+          shell:
             cmd: "{{ wpcli_command }} cache flush"
             chdir: "{{ project_current }}"
           when: "env in group_names"
 
         - name: PUSH > Elementor flush CSS on {{ env }}
-          shell: 
+          shell:
             cmd: '{{ wpcli_command }} cli has-command "elementor flush_css" && {{ wpcli_elementor }} flush_css || true'
             chdir: "{{ project_current }}"
           when: "env in group_names"
