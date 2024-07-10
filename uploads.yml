@@ -7,6 +7,7 @@
     project: "{{ wordpress_sites[site] }}"
     project_current: "{{ www_root }}/{{ site }}/current"
     project_local_path: "{{ (lookup('env', 'USER') == 'vagrant') | ternary(project_current, project.local_path) }}"
+    project_public_path: "{{ project.public_path | default('web') }}"
     wpcli_command: "wp --skip-themes"
     wpcli_elementor: "wp --skip-themes elementor"
 
@@ -20,8 +21,8 @@
     block:
       - name: Pull uploads from {{ env }}
         synchronize:
-          src: "{{ project_current }}/web/app/uploads/"
-          dest: "{{ project.local_path }}/web/app/uploads/"
+          src: "{{ project_current }}/{{ project_public_path }}/app/uploads/"
+          dest: "{{ project.local_path }}/{{ project_public_path }}/app/uploads/"
           mode: pull
           recursive: yes
           rsync_opts: --exclude=.DS_Store
@@ -37,8 +38,8 @@
     block:
       - name: Push uploads to {{ env }}
         synchronize:
-          src: "{{ project.local_path }}/web/app/uploads/"
-          dest: "{{ project_current }}/web/app/uploads/"
+          src: "{{ project.local_path }}/{{ project_public_path }}/app/uploads/"
+          dest: "{{ project_current }}/{{ project_public_path }}/app/uploads/"
           mode: push
           recursive: yes
           rsync_opts: --exclude=.DS_Store
