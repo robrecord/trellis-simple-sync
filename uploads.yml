@@ -21,8 +21,8 @@
     block:
       - name: Pull uploads from {{ env }}
         synchronize:
-          src: "{{ project_current }}/{{ project_public_path }}/app/uploads/"
-          dest: "{{ project.local_path }}/{{ project_public_path }}/app/uploads/"
+          src: "{{ project_current }}/{{ project_public_path }}/content/uploads/"
+          dest: "{{ project.local_path }}/{{ project_public_path }}/content/uploads/"
           mode: pull
           recursive: yes
           rsync_opts: --exclude=.DS_Store
@@ -38,8 +38,8 @@
     block:
       - name: Push uploads to {{ env }}
         synchronize:
-          src: "{{ project.local_path }}/{{ project_public_path }}/app/uploads/"
-          dest: "{{ project_current }}/{{ project_public_path }}/app/uploads/"
+          src: "{{ project.local_path }}/{{ project_public_path }}/content/uploads/"
+          dest: "{{ project_current }}/{{ project_public_path }}/content/uploads/"
           mode: push
           recursive: yes
           rsync_opts: --exclude=.DS_Store
