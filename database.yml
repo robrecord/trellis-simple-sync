@@ -32,6 +32,7 @@
       when: "skip_guids_column == 'false'"
 
     - name: PULL database
+      when: mode is not defined or mode == "pull"
       block:
         - name: PULL > Export {{ env }} database
           shell:
@@ -58,10 +59,10 @@
           register: stat_result
           when: "'development' in group_names"
 
-        - name: PUSH > Fail if dump file doesn't exist on {{ env }}
+        - name: PULL > Fail if dump file doesn't exist on {{ env }}
           fail:
             msg: "Database dump did not succesfully arrive on the destination server"
-          when: "'development' in group_names and not stat_result.stat.exists"
+          when: "'development' in group_names and not stat_result.stat.isreg"
 
         - name: PULL > Backup development database
           shell:
@@ -122,9 +123,9 @@
             cmd: '{{ wpcli_command }} cli has-command "elementor flush_css" && {{ wpcli_elementor }} flush_css || true'
             chdir: "{{ project_current }}"
           when: "'development' in group_names"
-      when: mode is not defined or mode == "pull"
 
     - name: PUSH database
+      when: mode is defined and mode == "push"
       block:
         - name: PUSH > Export development database
           shell:
@@ -147,7 +148,7 @@
         - name: PUSH > Fail if dump file doesn't exist on {{ env }}
           fail:
             msg: "Database dump did not succesfully arrive on the destination server"
-          when: not stat_result.stat.exists
+          when: "env in group_names and not stat_result.stat.isreg"
 
         - name: PUSH > Delete dump file from development
           file:
@@ -214,4 +215,3 @@
             cmd: '{{ wpcli_command }} cli has-command "elementor flush_css" && {{ wpcli_elementor }} flush_css || true'
             chdir: "{{ project_current }}"
           when: "env in group_names"
-      when: mode is defined and mode == "push"
