@@ -210,17 +210,17 @@
             chdir: "{{ project_current }}"
           when: "env in group_names"
 
-        - name: PULL > Replace escaped protocol-relative urls "\/\/{{ domain_dev }}" => "\/\/{{ domain_env }}" on development
+        - name: PUSH > Replace escaped protocol-relative urls "\/\/{{ domain_dev }}" => "\/\/{{ domain_env }}" on development
           shell:
             cmd: '{{ wpcli_command }} search-replace "\/\/{{ domain_dev }}" "\/\/{{ domain_env }}" {{ skip_guids_option }} --all-tables'
             chdir: "{{ project_current }}"
-          when: "'development' in group_names"
+          when: "env in group_names"
 
-        - name: PULL > Replace url-escaped protocol-relative urls "%2F%2F{{ domain_dev }}" => "%2F%2F{{ domain_env }}" on development
+        - name: PUSH > Replace url-escaped protocol-relative urls "%2F%2F{{ domain_dev }}" => "%2F%2F{{ domain_env }}" on development
           shell:
             cmd: '{{ wpcli_command }} search-replace "%2F%2F{{ domain_dev }}" "%2F%2F{{ domain_env }}" {{ skip_guids_option }} --all-tables'
             chdir: "{{ project_current }}"
-          when: "'development' in group_names"
+          when: "env in group_names"
 
         - name: PUSH > Replace emails "@{{ domain_dev }}" => "@{{ domain_env }}" on {{ env }}
           shell:
