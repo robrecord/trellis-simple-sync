@@ -11,14 +11,14 @@
     sync_file: "db-sync.sql.gz"
     backup_file: "db-backup-{{ ansible_date_time.iso8601_basic_short }}.sql.gz"
     dev_host: "{{ groups['development'] | first }}"
-    domain_dev: "{{ hostvars[dev_host].wordpress_sites[site].site_hosts.0.canonical }}"
-    domain_env: "{{ project.site_hosts.0.canonical }}"
+    env_host: "{{ groups[env] | first }}"
+    domain_dev: "{{ hostvars[dev_host].wordpress_sites[site].site_hosts[0].canonical }}"
+    domain_env: "{{ hostvars[env_host].wordpress_sites[site].site_hosts[0].canonical }}"
     url_dev: "{{ hostvars[dev_host].wordpress_sites[site].ssl.enabled | ternary('https', 'http') }}://{{ domain_dev }}"
-    url_env: "{{ project.ssl.enabled | ternary('https', 'http') }}://{{ domain_env }}"
+    url_env: "{{ hostvars[env_host].wordpress_sites[site].ssl.enabled | ternary('https', 'http') }}://{{ domain_env }}"
     skip_guids_option: "--skip-columns=guid"
     skip_guids_column: "{{ skip_guids | default('false') }}"
     wpcli_command: "wp --skip-themes"
-    wpcli_elementor: "wp --skip-themes elementor"
 
   tasks:
     - name: Abort if environment variable is equal to development
@@ -100,15 +100,27 @@
             chdir: "{{ project_current }}"
           when: "'development' in group_names"
 
-        - name: PULL > Replace emails "@{{ domain_env }}" => "@{{ domain_dev }}" on development
+        - name: PULL > Replace Elementor urls "{{ url_env }}" => "{{ url_dev }}" on development
           shell:
-            cmd: '{{ wpcli_command }} search-replace "@{{ domain_env }}" "@{{ domain_dev }}" --all-tables'
+            cmd: '{{ wpcli_command }} cli has-command "elementor replace_urls" && {{ wpcli_command }} elementor replace_urls "{{ url_env }}" "{{ url_dev }}" || true'
             chdir: "{{ project_current }}"
           when: "'development' in group_names"
 
-        - name: PULL > Replace Elementor urls "{{ url_env }}" => "{{ url_dev }}" on development
+        - name: PULL > Replace escaped protocol-relative urls "\/\/{{ domain_env }}" => "\/\/{{ domain_dev }}" on development
           shell:
-            cmd: '{{ wpcli_command }} cli has-command "elementor replace_urls" && {{ wpcli_elementor }} replace_urls "{{ url_env }}" "{{ url_dev }}" || true'
+            cmd: '{{ wpcli_command }} search-replace "\/\/{{ domain_env }}" "\/\/{{ domain_dev }}" {{ skip_guids_option }} --all-tables'
+            chdir: "{{ project_current }}"
+          when: "'development' in group_names"
+
+        - name: PULL > Replace url-escaped protocol-relative urls "%2F%2F{{ domain_env }}" => "%2F%2F{{ domain_dev }}" on development
+          shell:
+            cmd: '{{ wpcli_command }} search-replace "%2F%2F{{ domain_env }}" "%2F%2F{{ domain_dev }}" {{ skip_guids_option }} --all-tables'
+            chdir: "{{ project_current }}"
+          when: "'development' in group_names"
+
+        - name: PULL > Replace emails "@{{ domain_env }}" => "@{{ domain_dev }}" on development
+          shell:
+            cmd: '{{ wpcli_command }} search-replace "@{{ domain_env }}" "@{{ domain_dev }}" --all-tables'
             chdir: "{{ project_current }}"
           when: "'development' in group_names"
 
@@ -120,7 +132,7 @@
 
         - name: PULL > Elementor flush CSS on development
           shell:
-            cmd: '{{ wpcli_command }} cli has-command "elementor flush_css" && {{ wpcli_elementor }} flush_css || true'
+            cmd: '{{ wpcli_command }} cli has-command "elementor flush_css" && {{ wpcli_command }} elementor flush_css || true'
             chdir: "{{ project_current }}"
           when: "'development' in group_names"
 
@@ -174,11 +186,11 @@
             chdir: "{{ project_current }}"
           when: "env in group_names"
 
-        # - name: PUSH > Delete dump file on {{ env }}
-        #   file:
-        #     state: absent
-        #     path: "{{ project_current }}/{{ sync_file }}"
-        #   when: "env in group_names"
+        - name: PUSH > Delete dump file on {{ env }}
+          file:
+            state: absent
+            path: "{{ project_current }}/{{ sync_file }}"
+          when: "env in group_names"
 
         - name: PUSH > Replace urls "{{ url_dev }}" => "{{ url_env }}" on {{ env }}
           shell:
@@ -192,15 +204,27 @@
             chdir: "{{ project_current }}"
           when: "env in group_names"
 
-        - name: PUSH > Replace emails "@{{ domain_dev }}" => "@{{ domain_env }}" on {{ env }}
+        - name: PUSH > Replace Elementor urls "{{ url_dev }}" => "{{ url_env }}" on {{ env }}
           shell:
-            cmd: '{{ wpcli_command }} search-replace "@{{ domain_dev }}" "@{{ domain_env }}" --precise --all-tables'
+            cmd: '{{ wpcli_command }} cli has-command "elementor replace_urls" && {{ wpcli_command }} elementor replace_urls "{{ url_dev }}" "{{ url_env }}" || true'
             chdir: "{{ project_current }}"
           when: "env in group_names"
 
-        - name: PUSH > Replace Elementor urls "{{ url_dev }}" => "{{ url_env }}" on {{ env }}
+        - name: PULL > Replace escaped protocol-relative urls "\/\/{{ domain_dev }}" => "\/\/{{ domain_env }}" on development
           shell:
-            cmd: '{{ wpcli_command }} cli has-command "elementor replace_urls" && {{ wpcli_elementor }} replace_urls "{{ url_dev }}" "{{ url_env }}" || true'
+            cmd: '{{ wpcli_command }} search-replace "\/\/{{ domain_dev }}" "\/\/{{ domain_env }}" {{ skip_guids_option }} --all-tables'
+            chdir: "{{ project_current }}"
+          when: "'development' in group_names"
+
+        - name: PULL > Replace url-escaped protocol-relative urls "%2F%2F{{ domain_dev }}" => "%2F%2F{{ domain_env }}" on development
+          shell:
+            cmd: '{{ wpcli_command }} search-replace "%2F%2F{{ domain_dev }}" "%2F%2F{{ domain_env }}" {{ skip_guids_option }} --all-tables'
+            chdir: "{{ project_current }}"
+          when: "'development' in group_names"
+
+        - name: PUSH > Replace emails "@{{ domain_dev }}" => "@{{ domain_env }}" on {{ env }}
+          shell:
+            cmd: '{{ wpcli_command }} search-replace "@{{ domain_dev }}" "@{{ domain_env }}" --precise --all-tables'
             chdir: "{{ project_current }}"
           when: "env in group_names"
 
@@ -212,6 +236,6 @@
 
         - name: PUSH > Elementor flush CSS on {{ env }}
           shell:
-            cmd: '{{ wpcli_command }} cli has-command "elementor flush_css" && {{ wpcli_elementor }} flush_css || true'
+            cmd: '{{ wpcli_command }} cli has-command "elementor flush_css" && {{ wpcli_command }} elementor flush_css || true'
             chdir: "{{ project_current }}"
           when: "env in group_names"
