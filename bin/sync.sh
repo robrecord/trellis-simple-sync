@@ -88,6 +88,27 @@ if [[ $MODE != "pull" && $MODE != "push" ]]; then
   exit 1
 fi
 
+# Production push warning
+if [[ $ENV = "production" && $MODE = "push" ]]; then
+  echo "⚠️  WARNING: You are about to PUSH data to the PRODUCTION environment!"
+  echo "   Environment: $ENV"
+  echo "   Site: $SITE"
+  echo "   Type: $TYPE"
+  echo "   Mode: $MODE"
+  echo
+  echo "   This will OVERWRITE data on the production server."
+  echo "   This action cannot be undone!"
+  echo
+  echo -n "Type 'yes' if you wish to continue, or anything else to cancel: "
+  read -r confirmation
+  
+  if [[ $confirmation != "yes" ]]; then
+    echo "Operation cancelled."
+    exit 1
+  fi
+  echo
+fi
+
 INVENTORY_PARAMS="-i $HOSTS_FILE"
 
 VAGRANT_ACTIVE=0
