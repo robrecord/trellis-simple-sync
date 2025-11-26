@@ -95,7 +95,7 @@ done
 # If --skip not provided and --no-skip not set, check for sync-skip file
 if [[ -z $UPLOAD_SKIP_EXT && $NO_SKIP == 0 && -f sync-skip ]]; then
     SKIP_FILE_CONTENT=$(tr -d '[:space:]' < sync-skip)
-  if [[ -n $SKIP_FILE_CONTENT && $SKIP_FILE_CONTENT != *" "* ]]; then
+  if [[ -n $SKIP_FILE_CONTENT ]]; then
     UPLOAD_SKIP_EXT="$SKIP_FILE_CONTENT"
   fi
 fi
