@@ -6,15 +6,15 @@ ENVIRONMENTS=( "${ENVIRONMENTS[@]##*/}" )
 NUM_ARGS=4
 
 show_usage() {
-  echo "Usage: sync <environment> <site name> <type> <mode>
+  echo "Usage: sync <environment> <site name> <type> <mode> [options]
 
-<environment> is the environment to deploy to ("staging", "production", etc)
-<site name> is the WordPress site to deploy (name defined in "wordpress_sites")
-<type> is what we go to sync ("uploads", "database" or "all")
-<mode> is the sync mode ("pull" or "push")
+<environment> is the environment to deploy to (\"staging\", \"production\", etc)
+<site name> is the WordPress site to deploy (name defined in \"wordpress_sites\")
+<type> is what we go to sync (\"uploads\", \"database\" or \"all\")
+<mode> is the sync mode (\"pull\" or \"push\")
 
 Available environments:
-`( IFS=$'\n'; echo "${ENVIRONMENTS[*]}" )`
+$( IFS=$'\n'; echo "${ENVIRONMENTS[*]}" )
 
 Aliases:
   staging - stag - s
@@ -24,11 +24,24 @@ Aliases:
   pull - down
   push - up
 
+Options:
+  --skip=<extensions>  Exclude file types from uploads sync (comma-separated)
+                       Example: --skip=mp3,m4a,wav
+  --no-skip            Ignore the sync-skip file if it exists
+
+Default Skip File:
+  If a 'sync-skip' file exists in the trellis directory, its contents will be
+  used as the default --skip value. The file should contain comma-separated
+  extensions with no spaces (e.g., mp3,m4a,wav). Use --skip= to override or
+  --no-skip to ignore the file.
+
 Examples:
   sync staging example.com database push
   sync production example.com db pull
   sync staging example.com uploads pull
   sync prod example.com all up
+  sync staging example.com uploads pull --skip=mp3
+  sync staging example.com uploads push --skip=mp3,m4a,wav
 "
 }
 
@@ -68,6 +81,25 @@ elif [[ $MODE = up ]]; then
   MODE="push"
 fi
 
+# Check for --skip and --no-skip flags
+UPLOAD_SKIP_EXT=""
+NO_SKIP=0
+for arg in "$@"; do
+  if [[ $arg == --skip=* ]]; then
+    UPLOAD_SKIP_EXT="${arg#--skip=}"
+  elif [[ $arg == --no-skip ]]; then
+    NO_SKIP=1
+  fi
+done
+
+# If --skip not provided and --no-skip not set, check for sync-skip file
+if [[ -z $UPLOAD_SKIP_EXT && $NO_SKIP == 0 && -f sync-skip ]]; then
+    SKIP_FILE_CONTENT=$(tr -d '[:space:]' < sync-skip)
+  if [[ -n $SKIP_FILE_CONTENT && $SKIP_FILE_CONTENT != *" "* ]]; then
+    UPLOAD_SKIP_EXT="$SKIP_FILE_CONTENT"
+  fi
+fi
+
 HOSTS_FILE="hosts/$ENV"
 
 if [[ ! -e $HOSTS_FILE ]]; then
@@ -95,13 +127,16 @@ if [[ $ENV = "production" && $MODE = "push" ]]; then
   echo "   Site: $SITE"
   echo "   Type: $TYPE"
   echo "   Mode: $MODE"
+  if [[ -n $UPLOAD_SKIP_EXT ]]; then
+    echo "   Extensions skipped: $UPLOAD_SKIP_EXT"
+  fi
   echo
   echo "   This will OVERWRITE data on the production server."
   echo "   This action cannot be undone!"
   echo
   echo -n "Type 'yes' if you wish to continue, or anything else to cancel: "
   read -r confirmation
-  
+
   if [[ $confirmation != "yes" ]]; then
     echo "Operation cancelled."
     exit 1
@@ -119,7 +154,7 @@ if which vagrant >/dev/null; then
     VAGRANT_ID="$(cat .vagrant/hostmanager/id)"
 
     if test ${#VAGRANT_ID} -eq 36; then
-      if vagrant status $VAGRANT_ID --no-tty 2>/dev/null | grep -q "is running"; then
+      if vagrant status "$VAGRANT_ID" --no-tty 2>/dev/null | grep -q "is running"; then
         VAGRANT_ACTIVE=1
       fi
     fi
@@ -128,7 +163,7 @@ fi
 
 if which trellis >/dev/null && which limactl >/dev/null; then
   if test -e .trellis/lima/inventory; then
-    if limactl list $SITE 2>/dev/null | grep -q "Running"; then
+    if limactl list "$SITE" 2>/dev/null | grep -q "Running"; then
       LIMA_ACTIVE=1
     fi
   fi
@@ -140,23 +175,19 @@ if [[ $LIMA_ACTIVE == 0 ]] && [[ $VAGRANT_ACTIVE == 0 ]]; then
 fi
 
 if [[ $LIMA_ACTIVE == 1 ]]; then
-  INVENTORY_PARAMS="$INVENTORY_PARAMS -i .trellis/lima/inventory"
-fi
-
-if [[ $VAGRANT_ACTIVE == 1 ]]; then
-  INVENTORY_PARAMS="$INVENTORY_PARAMS -i .vagrant/provisioners/ansible/inventory"
+    INVENTORY_PARAMS="${INVENTORY_PARAMS} -i .trellis/lima/inventory"
+elif [[ $VAGRANT_ACTIVE == 1 ]]; then
+    INVENTORY_PARAMS="${INVENTORY_PARAMS} -i .vagrant/provisioners/ansible/inventory"
 fi
 
 if [[ $DEBUG == 1 ]]; then
   DEBUG_PARAMS="-vvv"
-else
-  DEBUG_PARAMS=""
 fi
 
-ARG_PARAMS="$DEBUG_PARAMS -e env=$ENV -e site=$SITE -e mode=$MODE"
+ANSIBLE_PARAMS="$DEBUG_PARAMS -e env=$ENV -e site=$SITE -e mode=$MODE -e upload_skip_ext=$UPLOAD_SKIP_EXT $INVENTORY_PARAMS"
 
-DATABASE_CMD="ansible-playbook database.yml $ARG_PARAMS $INVENTORY_PARAMS"
-UPLOADS_CMD="ansible-playbook uploads.yml $ARG_PARAMS $INVENTORY_PARAMS"
+DATABASE_CMD="ansible-playbook database.yml $ANSIBLE_PARAMS"
+UPLOADS_CMD="ansible-playbook uploads.yml $ANSIBLE_PARAMS"
 
 if [[ $TYPE = database ]]; then
   $DATABASE_CMD

@@ -10,45 +10,56 @@
     project_public_path: "{{ project.public_path | default('web') }}"
     wpcli_command: "wp --skip-themes"
     wpcli_elementor: "wp --skip-themes elementor"
+    rsync_options: "{{ ['--exclude=.DS_Store'] + (upload_skip_ext|default('')|split(',')|reject('equalto', '')|map('regex_replace', '^(.*)$', '--exclude=*.\\1')|list) }}"
 
   tasks:
-  - name: Abort if environment variable is equal to development
-    fail:
-      msg: "ERROR: development is not a valid environment for this mode (you can't push/pull from development to development)."
-    when: env == "development"
+    - name: Abort if environment variable is equal to development
+      fail:
+        msg: "ERROR: development is not a valid environment for this mode (you can't push/pull from development to development)."
+      when: env == "development"
 
-  - name: PULL uploads
-    block:
-      - name: Pull uploads from {{ env }}
-        synchronize:
-          src: "{{ project_current }}/{{ project_public_path }}/app/uploads/"
-          dest: "{{ project.local_path }}/{{ project_public_path }}/app/uploads/"
-          mode: pull
-          recursive: yes
-          rsync_opts: --exclude=.DS_Store
-        when: "env in group_names"
+    - name: PULL uploads
+      block:
+        - name: Debug - Show rsync options for PULL
+          debug:
+            msg: "rsync options: {{ rsync_options }}"
+          when: "env in group_names"
 
-      - name: Elementor flush CSS on development
-        shell: "{{ wpcli_command }} cli has-command 'elementor flush_css' && {{ wpcli_elementor }} flush_css --skip-themes || true"
-        when: "'development' in group_names"
+        - name: Pull uploads from {{ env }}
+          synchronize:
+            src: "{{ project_current }}/{{ project_public_path }}/app/uploads/"
+            dest: "{{ project.local_path }}/{{ project_public_path }}/app/uploads/"
+            mode: pull
+            recursive: yes
+            rsync_opts: "{{ rsync_options }}"
+          when: "env in group_names"
 
-    when: mode is not defined or mode == "pull"
+        - name: Elementor flush CSS on development
+          shell: "{{ wpcli_command }} cli has-command 'elementor flush_css' && {{ wpcli_elementor }} flush_css --skip-themes || true"
+          when: "'development' in group_names"
 
-  - name: PUSH uploads
-    block:
-      - name: Push uploads to {{ env }}
-        synchronize:
-          src: "{{ project.local_path }}/{{ project_public_path }}/app/uploads/"
-          dest: "{{ project_current }}/{{ project_public_path }}/app/uploads/"
-          mode: push
-          recursive: yes
-          rsync_opts: --exclude=.DS_Store
-        when: "env in group_names"
+      when: mode is not defined or mode == "pull"
 
-      - name: Elementor flush CSS on {{ env }}
-        shell: "{{ wpcli_command }} cli has-command 'elementor flush_css' && {{ wpcli_elementor }} flush_css --skip-themes || true"
-        args:
-          chdir: "{{ project_current }}"
-        when: "'development' in group_names"
+    - name: PUSH uploads
+      block:
+        - name: Debug - Show rsync options for PUSH
+          debug:
+            msg: "rsync options: {{ rsync_options }}"
+          when: "env in group_names"
 
-    when: mode is defined and mode == "push"
+        - name: Push uploads to {{ env }}
+          synchronize:
+            src: "{{ project.local_path }}/{{ project_public_path }}/app/uploads/"
+            dest: "{{ project_current }}/{{ project_public_path }}/app/uploads/"
+            mode: push
+            recursive: yes
+            rsync_opts: "{{ rsync_options }}"
+          when: "env in group_names"
+
+        - name: Elementor flush CSS on {{ env }}
+          shell: "{{ wpcli_command }} cli has-command 'elementor flush_css' && {{ wpcli_elementor }} flush_css --skip-themes || true"
+          args:
+            chdir: "{{ project_current }}"
+          when: "'development' in group_names"
+
+      when: mode is defined and mode == "push"
